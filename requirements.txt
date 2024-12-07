@@ -4,3 +4,6 @@ uvicorn>=0.15.0
 watchdog>=2.1.0
 websockets>=10.0
 pydantic>=1.9.0
+
+# JX3API Dependencies
+requests
