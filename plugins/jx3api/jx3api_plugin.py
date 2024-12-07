@@ -30,10 +30,18 @@ class JX3APIPlugin:
 
     def _replace_params(self, url: str, params: Dict) -> str:
         """替换URL中的参数"""
+        # 先处理特殊的token参数
+        if "#tokenv2#" in url:
+            url = url.replace("#tokenv2#", self.api_config.get("token_v2", ""))
+        elif "#token#" in url:
+            url = url.replace("#token#", self.api_config.get("token_v1", ""))
+
+        # 处理其他参数
         for key, value in params.items():
-            placeholder = f"#{key}#"
-            if placeholder in url:
-                url = url.replace(placeholder, str(value))
+            if key != "token":  # 跳过token参数，因为已经处理过了
+                placeholder = f"#{key}#"
+                if placeholder in url:
+                    url = url.replace(placeholder, str(value))
         return url
 
     def _build_url(self, api_name: str, is_image: bool, params: Dict) -> str:
@@ -52,10 +60,6 @@ class JX3APIPlugin:
         request_template = api_def.get("imageRequest" if is_image else "dataRequest", "")
         if not request_template:
             raise ValueError(f"API {api_name} 未配置{'图片' if is_image else '数据'}请求模板")
-
-        # 添加token到参数中
-        if "token" not in params:
-            params["token"] = self.api_config.get("token_v1", "")
 
         # 替换参数并构建完整URL
         query_string = self._replace_params(request_template, params)
