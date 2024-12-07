@@ -1,8 +1,8 @@
 {
     "name": "jx3api",
-    "version": "1.0.0",
-    "description": "剑网3 API插件",
-    "author": "OpenAI Assistant",
+    "version": "1.0.5",
+    "description": "JX3API插件（渡渡鸟2.0版）",
+    "author": "PigeonMuyz",
     "main": "main.py",
     "dependencies": ["requests"]
 }

@@ -12,7 +12,7 @@ from watchdog.events import FileSystemEventHandler
 from plugin_base import PluginBase
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(" 插件管理器")
 
 class ConfigFileHandler(FileSystemEventHandler):
     def __init__(self, plugin_manager):
@@ -31,7 +31,7 @@ class ConfigFileHandler(FileSystemEventHandler):
                 return
 
             self.last_reload[plugin_name] = current_time
-            logger.info(f"Config file changed for plugin: {plugin_name}")
+            logger.info(f" 插件 {plugin_name} 配置文件被更改")
 
             # 使用异步事件循环重载插件
             asyncio.run(self.plugin_manager.reload_plugin(plugin_name))
@@ -74,7 +74,7 @@ class PluginManager:
                     os.path.exists(os.path.join(item_path, "config.json"))):
                     plugin_dirs.append(item)
         except Exception as e:
-            logger.error(f"Error discovering plugins: {str(e)}")
+            logger.error(f" 发现插件出错: {str(e)}")
         return plugin_dirs
 
     def load_plugin_metadata(self, plugin_name: str) -> Optional[Dict]:
@@ -82,19 +82,19 @@ class PluginManager:
         try:
             config_path = os.path.join(self.plugin_dir, plugin_name, "config.json")
             if not os.path.exists(config_path):
-                logger.error(f"No config.json found for plugin {plugin_name}")
+                logger.error(f" 插件 {plugin_name} 没有配置文件")
                 return None
 
             with open(config_path, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            logger.error(f"Error loading metadata for plugin {plugin_name}: {str(e)}")
+            logger.error(f" 加载插件 {plugin_name} 元数据失败: {str(e)}")
             return None
 
     async def reload_plugin(self, plugin_name: str) -> bool:
         """重新加载插件"""
         try:
-            logger.info(f"Reloading plugin: {plugin_name}")
+            logger.info(f" 重新加载插件: {plugin_name}")
 
             # 如果插件已加载，先卸载
             if plugin_name in self.plugins:
@@ -111,14 +111,14 @@ class PluginManager:
             return False
 
         except Exception as e:
-            logger.error(f"Error reloading plugin {plugin_name}: {str(e)}")
+            logger.error(f" 重新加载插件 {plugin_name} 出错: {str(e)}")
             return False
 
     async def load_plugin(self, plugin_name: str) -> bool:
         """加载并初始化插件"""
         try:
             if plugin_name in self.plugins:
-                logger.warning(f"Plugin {plugin_name} already loaded")
+                logger.warning(f" 插件 {plugin_name} 已加载")
                 return False
 
             # 首先加载元数据
@@ -131,7 +131,7 @@ class PluginManager:
             plugin_path = os.path.join(self.plugin_dir, plugin_name, main_file)
 
             if not os.path.exists(plugin_path):
-                logger.error(f"Plugin main file not found: {plugin_path}")
+                logger.error(f" 插件: {plugin_path} 主入口未找到")
                 return False
 
             # 重新加载模块（如果已经加载过）
@@ -157,7 +157,7 @@ class PluginManager:
                     break
 
             if plugin_class is None:
-                raise ValueError(f"No valid plugin class found in {plugin_name}")
+                raise ValueError(f" {plugin_name} 未通过校验 ")
 
             # 创建插件实例，传入元数据和配置
             plugin_instance = plugin_class(
@@ -169,11 +169,11 @@ class PluginManager:
 
             self.plugins[plugin_name] = plugin_instance
             self.plugin_classes[plugin_name] = plugin_class
-            logger.info(f"Successfully loaded plugin: {plugin_name}")
+            logger.info(f" 成功加载: {plugin_name}")
             return True
 
         except Exception as e:
-            logger.error(f"Error initializing plugin {plugin_name}: {str(e)}")
+            logger.error(f" 插件初始化失败 {plugin_name}: {str(e)}")
             return False
 
     async def unload_plugin(self, plugin_name: str) -> bool:
@@ -190,51 +190,51 @@ class PluginManager:
 
             del self.plugins[plugin_name]
             del self.plugin_classes[plugin_name]
-            logger.info(f"Successfully unloaded plugin: {plugin_name}")
+            logger.info(f" 卸载插件: {plugin_name}")
             return True
 
         except Exception as e:
-            logger.error(f"Error unloading plugin {plugin_name}: {str(e)}")
+            logger.error(f" 卸载插件 {plugin_name}出错: {str(e)}")
             return False
 
     async def enable_plugin(self, plugin_name: str) -> bool:
         """启用插件"""
         try:
             if plugin_name not in self.plugins:
-                logger.warning(f"Plugin {plugin_name} not loaded")
+                logger.warning(f" 插件 {plugin_name} 未加载")
                 return False
 
             plugin = self.plugins[plugin_name]
             if plugin.is_enabled:
-                logger.warning(f"Plugin {plugin_name} already enabled")
+                logger.warning(f" 插件 {plugin_name} 已加载")
                 return False
 
             await plugin.on_enable()
-            logger.info(f"Successfully enabled plugin: {plugin_name}")
+            logger.info(f" 成功加载: {plugin_name}")
             return True
 
         except Exception as e:
-            logger.error(f"Error enabling plugin {plugin_name}: {str(e)}")
+            logger.error(f" 加载失败 {plugin_name}: {str(e)}")
             return False
 
     async def disable_plugin(self, plugin_name: str) -> bool:
         """禁用插件"""
         try:
             if plugin_name not in self.plugins:
-                logger.warning(f"Plugin {plugin_name} not loaded")
+                logger.warning(f" 插件 {plugin_name} 未加载")
                 return False
 
             plugin = self.plugins[plugin_name]
             if not plugin.is_enabled:
-                logger.warning(f"Plugin {plugin_name} already disabled")
+                logger.warning(f" 插件 {plugin_name} 已被禁用")
                 return False
 
             await plugin.on_disable()
-            logger.info(f"Successfully disabled plugin: {plugin_name}")
+            logger.info(f" 成功禁用插件: {plugin_name}")
             return True
 
         except Exception as e:
-            logger.error(f"Error disabling plugin {plugin_name}: {str(e)}")
+            logger.error(f" 禁用插件 {plugin_name} 失败: {str(e)}")
             return False
 
     def get_plugin_status(self, plugin_name: str) -> Dict:
@@ -258,13 +258,13 @@ class PluginManager:
     def update_plugin_config(self, plugin_name: str, config: Dict) -> bool:
         """更新插件配置"""
         if plugin_name not in self.plugins:
-            logger.warning(f"Plugin {plugin_name} not loaded")
+            logger.warning(f" 插件 {plugin_name} 为加载")
             return False
 
         try:
             self.plugins[plugin_name].update_config(config)
-            logger.info(f"Successfully updated config for plugin: {plugin_name}")
+            logger.info(f" 成功更新插件 {plugin_name} 配置:")
             return True
         except Exception as e:
-            logger.error(f"Error updating config for plugin {plugin_name}: {str(e)}")
+            logger.error(f" 更新插件 {plugin_name} 配置失败: {str(e)}")
             return False

@@ -13,30 +13,48 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(" 主入口")
 
 # 创建生命周期管理器
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """应用程序生命周期管理"""
     # 启动时的操作
     # 发现所有插件
     plugins = plugin_manager.discover_plugins()
-    logger.info(f"Discovered plugins: {plugins}")
-    
+    logger.info(f" 发现插件: {plugins}")
+
     # 加载并启用所有插件
     for plugin_name in plugins:
-        # 加载插件
-        success = await plugin_manager.load_plugin(plugin_name)
-        if success:
-            # 启用插件
-            await plugin_manager.enable_plugin(plugin_name)
-        else:
-            logger.error(f"Failed to load plugin: {plugin_name}")
-    
+        try:
+            # 加载插件
+            success = await plugin_manager.load_plugin(plugin_name)
+            if success:
+                # 获取插件实例
+                plugin = plugin_manager.plugins[plugin_name]
+
+                # 如果插件有路由，添加到应用中
+                if hasattr(plugin, 'get_router') and callable(plugin.get_router):
+                    router = plugin.get_router()
+                    if router:
+                        app.include_router(router)
+                        logger.info(f" 插件 {plugin_name} 添加路由成功")
+
+                # 启用插件
+                await plugin_manager.enable_plugin(plugin_name)
+                logger.info(f" 启用插件: {plugin_name}")
+            else:
+                logger.error(f" 加载插件 {plugin_name} 出错")
+        except Exception as e:
+            logger.error(f" 初始化插件 {plugin_name} 报错: {str(e)}")
+
     yield
-    
+
     # 关闭时的操作
-    # 这里可以添加清理代码
+    # 禁用所有插件
+    for plugin_name in list(plugin_manager.plugins.keys()):
+        await plugin_manager.disable_plugin(plugin_name)
+        await plugin_manager.unload_plugin(plugin_name)
 
 # 创建FastAPI应用实例
 app = FastAPI(
@@ -72,6 +90,15 @@ async def load_plugin(plugin_name: str):
     success = await plugin_manager.load_plugin(plugin_name)
     if not success:
         raise HTTPException(status_code=400, detail=f"Failed to load plugin: {plugin_name}")
+
+    # 如果插件有路由，添加到应用中
+    plugin = plugin_manager.plugins.get(plugin_name)
+    if plugin and hasattr(plugin, 'get_router') and callable(plugin.get_router):
+        router = plugin.get_router()
+        if router:
+            app.include_router(router)
+            logger.info(f" 插件 {plugin_name} 添加路由成功")
+
     return {"status": "success", "message": f"Plugin {plugin_name} loaded successfully"}
 
 @app.post("/api/plugins/{plugin_name}/unload")
