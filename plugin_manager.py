@@ -4,15 +4,15 @@ import sys
 import importlib.util
 import asyncio
 from typing import Dict, List, Type, Optional
-import logging
+from utils.logger import setup_logger
+
 import time
 import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from plugin_base import PluginBase
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(" 插件管理器")
+logger = setup_logger("插件管理器")
 
 class ConfigFileHandler(FileSystemEventHandler):
     def __init__(self, plugin_manager):
@@ -20,7 +20,8 @@ class ConfigFileHandler(FileSystemEventHandler):
         self.last_reload = {}  # 用于防止重复重载
 
     def on_modified(self, event):
-        if not event.is_directory and event.src_path.endswith('config.json'):
+        # if not event.is_directory and event.src_path.endswith('config.json'):
+        if not event.is_directory:
             # 获取插件名称（从路径中提取）
             plugin_dir = os.path.dirname(event.src_path)
             plugin_name = os.path.basename(plugin_dir)

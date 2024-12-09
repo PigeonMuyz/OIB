@@ -2,18 +2,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, List
 import uvicorn
-import logging
+from utils.logger import setup_logger
 import asyncio
 from contextlib import asynccontextmanager
 
 from plugin_manager import PluginManager
 
 # 配置日志系统
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(" 主入口")
+logger = setup_logger("MAIN")
 
 # 创建生命周期管理器
 @asynccontextmanager
