@@ -1,23 +1,12 @@
 {
   "endPoint": "/api/jx3api",
   "config": {
-    "token_v1": "xxxxxx",
-    "token_v2": "xxxxxx",
-    "tuilan_token": "xxxxxx",
-    "scale": "xxxxxx",
-    "botname": "xxxxxx",
+    "token_v1": "xxxxx",
+    "token_v2": "xxxx",
+    "tuilan_token": "xxxx",
+    "scale": "2",
+    "botname": "渡渡鸟2.0",
     "dataUrl": "https://www.jx3api.com/data",
     "imageUrl": "https://www.jx3api.com/view"
-  },
-  "api": {
-    "团队招募": {
-      "endPoint": "/member/recruit",
-      "alias": ["招募","活动","招募活动"],
-      "isImageApi": true,
-      "isDataApi": true,
-      "imageRequest": "server=#server#&keyword=#keyword#&token=#token#",
-      "dataRequest": "server=#server#&keyword=#keyword#&table=#table#&token=#token#",
-      "isEnable": true
-    }
   }
 }

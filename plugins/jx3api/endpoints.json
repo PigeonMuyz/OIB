@@ -1,0 +1,30 @@
+{
+  "团队招募": {
+    "endPoint": "/member/recruit",
+    "alias": ["招募","活动","招募活动"],
+    "isImageApi": true,
+    "isDataApi": true,
+    "imageRequest": "server=#server#&keyword=#keyword#&token=#token#",
+    "dataRequest": "server=#server#&keyword=#keyword#&table=#table#&token=#token#",
+    "isEnable": true,
+    "isV2": false
+  },
+  "角色名片": {
+    "endPoint": "/role/show/card",
+    "alias": ["名片","qq秀","照骗"],
+    "isImageApi": false,
+    "isDataApi": true,
+    "dataRequest": "server=#server#&name=#name#&token=#token#",
+    "isEnable": true,
+    "isV2": true
+  },
+  "咕咕咕": {
+    "endPoint": "/member/recruit",
+    "alias": ["咕"],
+    "isImageApi": false,
+    "isDataApi": true,
+    "dataRequest": "server=#server#&name=#name#&token=#token#",
+    "isEnable": true,
+    "isV2": true
+  }
+}
