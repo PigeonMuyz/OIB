@@ -12,16 +12,16 @@ logger = logging.getLogger(__name__)
 
 class PluginFileHandler(FileSystemEventHandler):
     """插件文件监控处理器"""
-    
+
     IGNORE_DIRS = {'assets', 'temp', 'static', '__pycache__'}
-    
+
     def __init__(self, plugin_instance: 'PluginBase'):
         self.plugin = plugin_instance
-        
+
     def should_ignore(self, path: str) -> bool:
         path_parts = path.split(os.sep)
         return any(ignored in path_parts for ignored in self.IGNORE_DIRS)
-    
+
     def on_modified(self, event):
         if isinstance(event, FileModifiedEvent) and not self.should_ignore(event.src_path):
             filename = os.path.basename(event.src_path)
@@ -33,7 +33,7 @@ class PluginFileHandler(FileSystemEventHandler):
 class PluginBase(ABC):
     def __init__(self, **kwargs):
         """初始化插件基类
-        
+
         Parameters:
             context (Optional[Dict]): 插件上下文
             metadata (Optional[Dict]): 插件元数据
@@ -70,14 +70,14 @@ class PluginBase(ABC):
         """设置文件监控"""
         if not self._plugin_path:
             self._plugin_path = os.path.dirname(os.path.abspath(self.__class__.__module__.replace('.', os.sep)))
-        
+
         if not self.observer:
             self.observer = Observer()
             event_handler = PluginFileHandler(self)
-            
+
             self.observer.schedule(event_handler, self._plugin_path, recursive=True)
             self._watched_paths.add(self._plugin_path)
-            
+
             self.observer.start()
             logger.info(f"Started file monitoring for plugin directory: {self._plugin_path}")
 
@@ -101,13 +101,13 @@ class PluginBase(ABC):
             if os.path.exists(plugin_json_path):
                 with open(plugin_json_path, 'r', encoding='utf-8') as f:
                     self.metadata = json.load(f)
-            
+
             # 加载 config.json
             config_json_path = os.path.join(self._plugin_path, 'config.json')
             if os.path.exists(config_json_path):
                 with open(config_json_path, 'r', encoding='utf-8') as f:
                     self.config.update(json.load(f))
-            
+
             return True
         except Exception as e:
             logger.error(f"Failed to load configs: {e}")
@@ -119,10 +119,10 @@ class PluginBase(ABC):
             # 加载配置
             if not await self.load_configs():
                 return False
-            
+
             # 设置文件监控
             self.setup_file_monitor()
-            
+
             return True
         except Exception as e:
             logger.error(f"Plugin initialization failed: {e}")
