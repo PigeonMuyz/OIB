@@ -2,6 +2,7 @@ from typing import Optional, Dict
 from fastapi import APIRouter, HTTPException, Query
 import sys
 import os
+import asyncio
 
 # 添加父目录到 Python 路径以导入 PluginBase
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -10,13 +11,14 @@ if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
 from plugin_base import PluginBase
+from utils import setup_logger
 from .jx3api_plugin import JX3APIPlugin
-import logging
 import time
 from enum import Enum
-from fastapi.responses import JSONResponse, Response, RedirectResponse
+from fastapi.responses import JSONResponse, Response
 
-logger = logging.getLogger(" JX3API Plugins")
+# 设置logger
+logger = setup_logger("JX3API.Plugin")
 
 class RequestType(str, Enum):
     DATA = "data"
@@ -43,6 +45,15 @@ class JX3Plugin(PluginBase):
     def get_router(self) -> Optional[APIRouter]:
         return self.router
 
+    async def handle_config_update(self):
+        """处理配置文件更新"""
+        try:
+            if self.api:
+                self.api.reload()
+                logger.info("配置已重新加载")
+        except Exception as e:
+            logger.error(f"配置重新加载失败: {str(e)}")
+
     def _normalize_response(self, response_data: Dict) -> Dict:
         """标准化响应格式，将远程API的响应格式转换为本地格式"""
         return {
@@ -67,17 +78,16 @@ class JX3Plugin(PluginBase):
     async def _handle_request(self, api_name: str, request_type: RequestType, params: Dict, internal: bool = False) -> Response:
         """统一处理请求"""
         try:
-            logger.info(f"Processing request: api_name={api_name}, type={request_type}, params={params}")
+            logger.debug(f"处理请求: api={api_name}, 类型={request_type}, 参数={params}")
 
             # 检查API是否存在或是别名
             actual_api = self.api.get_api_by_alias(api_name) or api_name
-            logger.info(f"Resolved API name: {actual_api}")
+            logger.debug(f"解析API名称: {actual_api}")
 
             api_def = self.api.api_definitions.get(actual_api)
-            logger.info(f"API definition: {api_def}")
 
             if not api_def:
-                logger.error(f"API not found: {api_name}")
+                logger.error(f"未找到API: {api_name}")
                 return JSONResponse(
                     status_code=404,
                     content={
@@ -90,7 +100,7 @@ class JX3Plugin(PluginBase):
 
             # 检查API是否启用（仅对外部请求检查）
             if not internal and not api_def.get("isEnable", False):
-                logger.error(f" 当前API {actual_api} 未对外开放")
+                logger.error(f"API未开放: {actual_api}")
                 return JSONResponse(
                     status_code=403,
                     content={
@@ -114,7 +124,6 @@ class JX3Plugin(PluginBase):
 
                 # 如果是图片请求且响应成功，处理图片URL
                 if request_type == RequestType.IMAGE and response["code"] == 200 and response["data"] and "url" in response["data"]:
-                    # 处理图片URL，这里可以添加上传到存储桶的逻辑
                     response["data"]["url"] = await self._process_image(response["data"]["url"])
 
                 if response["code"] != 200:
@@ -123,7 +132,7 @@ class JX3Plugin(PluginBase):
                 return JSONResponse(content=response)
 
             except Exception as e:
-                logger.error(f"API request failed: {str(e)}")
+                logger.error(f"API请求失败: {str(e)}")
                 return JSONResponse(
                     status_code=400,
                     content={
@@ -135,7 +144,7 @@ class JX3Plugin(PluginBase):
                 )
 
         except Exception as e:
-            logger.error(f"Error processing request: {str(e)}", exc_info=True)
+            logger.error(f"请求处理失败: {str(e)}", exc_info=True)
             return JSONResponse(
                 status_code=400,
                 content={
@@ -154,7 +163,7 @@ class JX3Plugin(PluginBase):
             info = {
                 "name": self.name,
                 "version": self.version,
-                "apis": self.api.list_apis() if self.api else []  # 只返回对外开放的API
+                "apis": self.api.list_apis() if self.api else []
             }
             return self._normalize_response({"data": info})
 
@@ -210,7 +219,7 @@ class JX3Plugin(PluginBase):
             table: str = Query("", description="数据表名")
         ):
             """内部API处理入口"""
-            logger.info(f"Internal API request: {api_name}, type={type}, server={server}, keyword={keyword}, table={table}")
+            logger.info(f"内部API请求: {api_name}, 类型={type}, 服务器={server}, 关键词={keyword}, 数据表={table}")
             params = {
                 "server": server,
                 "keyword": keyword
@@ -226,29 +235,29 @@ class JX3Plugin(PluginBase):
             # 初始化API插件
             self.api = JX3APIPlugin()
             apis = self.api.list_apis()
-            logger.info(f" 成功加载")
+            logger.info("插件加载成功")
             return True
         except Exception as e:
-            logger.error(f" 加载失败 {e}")
+            logger.error(f"插件加载失败: {e}")
             return False
 
     async def on_enable(self) -> bool:
         """启用时调用"""
         success = await super().on_enable()
-        # if success:
-        #     logger.info(" JX3API Plugin enabled")
+        if success:
+            logger.info("插件已启用")
         return success
 
     async def on_disable(self) -> bool:
         """禁用时调用"""
         success = await super().on_disable()
-        # if success:
-        #     logger.info("JX3API Plugin disabled")
+        if success:
+            logger.info("插件已禁用")
         return success
 
     async def on_unload(self) -> bool:
         """卸载时调用"""
         success = await super().on_unload()
         if success:
-            logger.info(" 插件卸载 ")
+            logger.info("插件已卸载")
         return success

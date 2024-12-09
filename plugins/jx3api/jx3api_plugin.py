@@ -3,9 +3,17 @@ import json
 import os
 import requests
 from urllib.parse import urljoin
-import logging
+import sys
 
-logger = logging.getLogger(" JX3API Plugins")
+# 添加父目录到 Python 路径以导入 utils
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(os.path.dirname(current_dir))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
+from utils import setup_logger
+
+logger = setup_logger("JX3API.Core")  # 使用子logger名称区分不同模块
 
 class JX3APIPlugin:
     """剑网3 API插件核心类"""
@@ -16,32 +24,54 @@ class JX3APIPlugin:
         :param config_path: 配置文件路径，如果为None则使用默认路径
         """
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(__file__), 'config.json')
-        self.config_path = config_path
-        logger.info(f" 加载配置文件: {config_path}")
+            self.config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+            self.endpoints_path = os.path.join(os.path.dirname(__file__), 'endpoints.json')
+        else:
+            self.config_path = config_path
+            self.endpoints_path = os.path.join(os.path.dirname(config_path), 'endpoints.json')
+
+        logger.info(f"加载配置文件: {self.config_path}")
+        logger.info(f"加载端点配置: {self.endpoints_path}")
 
         self.config = self._load_config()
         self.base_endpoint = self.config.get("endPoint", "")
         self.api_config = self.config.get("config", {})
-        self.api_definitions = self.config.get("api", {})
-
-        logger.info(f" 配置中的API接口: {list(self.api_definitions.keys())}")
+        self.api_definitions = self._load_endpoints()
 
     def _load_config(self) -> Dict:
-        """加载配置文件"""
+        """加载主配置文件"""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            logger.error(f" 加载配置文件失败: {str(e)}")
+            logger.error(f"加载配置文件失败: {str(e)}")
             raise Exception(f"加载配置文件失败: {str(e)}")
+
+    def _load_endpoints(self) -> Dict:
+        """加载API端点配置文件"""
+        try:
+            with open(self.endpoints_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"加载API端点配置失败: {str(e)}")
+            raise Exception(f"加载API端点配置失败: {str(e)}")
+
+    def reload(self):
+        """重新加载所有配置"""
+        try:
+            self.config = self._load_config()
+            self.base_endpoint = self.config.get("endPoint", "")
+            self.api_config = self.config.get("config", {})
+            self.api_definitions = self._load_endpoints()
+            logger.info("配置重新加载完成")
+        except Exception as e:
+            logger.error(f"重新加载配置失败: {str(e)}")
+            raise
 
     def _build_url(self, api_name: str, is_image: bool, params: Dict) -> str:
         """构建完整的API URL"""
-        logger.info(f"Building URL for api={api_name}, is_image={is_image}, params={params}")
-
         if api_name not in self.api_definitions:
-            logger.error(f" 未找到API: {api_name}")
+            logger.error(f"未找到API: {api_name}")
             raise ValueError(f"未找到API: {api_name}")
 
         api_def = self.api_definitions[api_name]
@@ -52,7 +82,6 @@ class JX3APIPlugin:
 
         # 构建完整的基础URL
         full_base_url = f"{base_url}{endpoint}"
-        # logger.info(f" Base URL: {full_base_url}")
 
         # 添加token参数
         token = self.api_config.get("token_v2") if api_def["isV2"] else self.api_config.get("token_v1")
@@ -61,7 +90,7 @@ class JX3APIPlugin:
         # 获取对应请求模板
         request_template = api_def.get("imageRequest" if is_image else "dataRequest", "")
         if not request_template:
-            logger.error(f" {api_name} 并没有图片请求接口 ")
+            logger.error(f"{api_name} 并没有{('图片' if is_image else '数据')}请求接口")
             raise ValueError(f"API {api_name} 未配置{'图片' if is_image else '数据'}请求模板")
 
         # 替换模板中的参数
@@ -75,9 +104,6 @@ class JX3APIPlugin:
                     query_params = query_params.replace(placeholder, "")
 
         # 移除未被替换的占位符以及多余的`&`符号
-        query_params = "&".join(
-            part for part in query_params.split("&") if "=" in part and not part.endswith("=")
-        )
         valid_parts = [
             part for part in query_params.split("&")
             if "=" in part and not part.endswith("=") and "#" not in part
@@ -85,7 +111,7 @@ class JX3APIPlugin:
         query_params = "&".join(valid_parts)
         # 最终的URL
         final_url = f"{full_base_url}?{query_params}".rstrip("?&")
-        logger.info(f"Final URL: {final_url}")
+        logger.debug(f"构建URL: {final_url}")
         return final_url
 
     def get_api_data(self, api_name: str, params: Dict) -> Dict:
@@ -95,16 +121,16 @@ class JX3APIPlugin:
         :param params: 请求参数
         :return: API响应数据
         """
-        logger.info(f"Making data request for api={api_name}, params={params}")
+        logger.info(f"请求数据: api={api_name}, 参数={params}")
         url = self._build_url(api_name, False, params)
-        logger.info(f"Making request to: {url}")
+        logger.debug(f"请求URL: {url}")
 
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            logger.error(f"API request failed: {str(e)}")
+            logger.error(f"API请求失败: {str(e)}")
             raise Exception(f"API请求失败: {str(e)}")
 
     def get_api_image(self, api_name: str, params: Dict) -> Dict:
@@ -114,16 +140,16 @@ class JX3APIPlugin:
         :param params: 请求参数
         :return: API响应数据
         """
-        logger.info(f"Making image request for api={api_name}, params={params}")
+        logger.info(f"请求图片: api={api_name}, 参数={params}")
         url = self._build_url(api_name, True, params)
-        logger.info(f"Making request to: {url}")
+        logger.debug(f"请求URL: {url}")
 
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            logger.error(f"API request failed: {str(e)}")
+            logger.error(f"API请求失败: {str(e)}")
             raise Exception(f"API请求失败: {str(e)}")
 
     def get_api_by_alias(self, alias: str) -> Optional[str]:
@@ -132,19 +158,15 @@ class JX3APIPlugin:
         :param alias: API别名
         :return: API名称，如果未找到则返回None
         """
-        logger.info(f"Looking up API by alias: {alias}")
         # 首先检查是否直接是API名称
         if alias in self.api_definitions:
-            logger.info(f"Found direct API match: {alias}")
             return alias
 
         # 然后检查别名
         for api_name, api_def in self.api_definitions.items():
             if alias in api_def.get("alias", []):
-                logger.info(f"Found API: {api_name} for alias: {alias}")
                 return api_name
 
-        logger.info(f"No API found for alias: {alias}")
         return None
 
     def list_apis(self) -> List[Dict]:
@@ -163,5 +185,4 @@ class JX3APIPlugin:
             for name, api in self.api_definitions.items()
             if api.get("isEnable", False)  # 只返回对外开放的API
         ]
-        # logger.info(f" Listed APIs: {apis}")
         return apis
